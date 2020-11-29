@@ -17,6 +17,7 @@ import {
   Route,
   Link
 } from "react-router-dom";
+import Login from "./login/Login";
 
 const QUIZZES = globals.QUIZ_GLOBAL
 
@@ -405,11 +406,8 @@ current content of the editor to the server. */
               <Link to="/">Home</Link>
             </li>
             <li>
-              <Link to="/about">About</Link>
-            </li>
-            <li>
-              <Link to="/dashboard">Dashboard</Link>
-            </li>
+              <Link to="/login">Login</Link>
+            </li>            
           </ul>
           <hr />
           <Switch>
@@ -443,11 +441,8 @@ current content of the editor to the server. */
                 <h3>Audio Enabled: {this.state.play_audio.toString()}</h3>
               </React.Fragment>
             </Route>
-            <Route path="/about">
-              <About />
-            </Route>
-            <Route path="/dashboard">
-              <Dashboard />
+            <Route path="/login">
+              <Login />
             </Route>
           </Switch>
         </div>
@@ -457,19 +452,3 @@ current content of the editor to the server. */
 }
 
 export default App;
-
-function About() {
-  return (
-    <div>
-      <h2>About</h2>
-    </div>
-  );
-}
-
-function Dashboard() {
-  return (
-    <div>
-      <h2>Dashboard</h2>
-    </div>
-  );
-}
