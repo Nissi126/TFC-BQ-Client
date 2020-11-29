@@ -11,6 +11,12 @@ import './App.css';
 import globals from './globals'
 import { fetchQuestion, fetchRandomQuestion } from './webserviceCalls';
 import chapters from './constants';
+import {
+  BrowserRouter as Router,
+  Switch,
+  Route,
+  Link
+} from "react-router-dom";
 
 const QUIZZES = globals.QUIZ_GLOBAL
 
@@ -174,7 +180,7 @@ current content of the editor to the server. */
     if (i < this.question_array.length) {
       q_text_to_display = q_text_to_display.concat(this.question_array[i]).concat(' ')
       i++
-      this.setState({ q_text_to_display: q_text_to_display, i: i, full_question_text: full_question_text, question_number:question_number, question_type:question_type, quiz_started: true })
+      this.setState({ q_text_to_display: q_text_to_display, i: i, full_question_text: full_question_text, question_number: question_number, question_type: question_type, quiz_started: true })
       this.sync(room)
     }
   }
@@ -227,7 +233,7 @@ current content of the editor to the server. */
               answer_question_text: data[2],
               question_reference: data[3],
               q_text_to_display: " ",
-              question_number: question_number+1,
+              question_number: question_number + 1,
               i: this.i
             })
           }
@@ -262,7 +268,7 @@ current content of the editor to the server. */
             question_type: data[18] + " " + data[9],
             answer_question_text: data[11],
             q_text_to_display: " ",
-            question_number: question_number+1,
+            question_number: question_number + 1,
             i: this.i
           })
         } else {
@@ -278,7 +284,7 @@ current content of the editor to the server. */
   }
 
   setQuizNumber(selectedQuizNumber) {
-    this.setState({ 
+    this.setState({
       quizNumber: selectedQuizNumber,
       question_number: 0
     })
@@ -332,9 +338,9 @@ current content of the editor to the server. */
     var { username, full_question_text, answer_question_text, question_number, question_type, question_reference, is_bonus } = this.state
     if (username === 'QM') {
       let questionTypeTemp;
-      if(is_bonus){
+      if (is_bonus) {
         questionTypeTemp = <h1>Question: Bonus</h1>
-      }else{
+      } else {
         questionTypeTemp = <h1>Question: #{question_number} </h1>
       }
       return (
@@ -386,42 +392,84 @@ current content of the editor to the server. */
       jumper
     } = this.state;
     let questionTypeTemp;
-    if(is_bonus){
+    if (is_bonus) {
       questionTypeTemp = <h1>Question Bonus: {question_type}</h1>
-    }else{
+    } else {
       questionTypeTemp = <h1>Question {question_number}: {question_type}</h1>
     }
     return (
-      <React.Fragment>
-        <Navbar color="light" light>
-          <NavbarBrand href="/">Bible Quiz 2.0</NavbarBrand>
-        </Navbar>
+      <Router>
         <div>
-          Current Room: <b>{room}</b>
+          <ul>
+            <li>
+              <Link to="/">Home</Link>
+            </li>
+            <li>
+              <Link to="/about">About</Link>
+            </li>
+            <li>
+              <Link to="/dashboard">Dashboard</Link>
+            </li>
+          </ul>
+          <hr />
+          <Switch>
+            <Route exact path="/">
+              <React.Fragment>
+                <Navbar color="light" light>
+                  <NavbarBrand href="/">Bible Quiz 2.0</NavbarBrand>
+                </Navbar>
+                <div>
+                  Current Room: <b>{room}</b>
+                </div>
+                <div>
+                  User Name: <b>{username}</b>
+                </div>
+                <br></br>
+                <div>
+                  {questionTypeTemp}
+                  <h1>{q_text_to_display}</h1>
+                </div>
+                <div className="container-fluid">
+                  <br></br>
+                  {this.showQuizzerSection()}
+                  {this.showQuizMasterSection()}
+                  <br></br>
+                </div>
+                <div>
+                  <h3>Current Jumper: {jumper}</h3>
+                </div>
+                <br></br>
+                <Button onClick={() => this.mute()}>Mute Question Audio</Button>{' '}
+                <h3>Audio Enabled: {this.state.play_audio.toString()}</h3>
+              </React.Fragment>
+            </Route>
+            <Route path="/about">
+              <About />
+            </Route>
+            <Route path="/dashboard">
+              <Dashboard />
+            </Route>
+          </Switch>
         </div>
-        <div>
-          User Name: <b>{username}</b>
-        </div>
-        <br></br>
-        <div>
-          {questionTypeTemp}
-          <h1>{q_text_to_display}</h1>
-        </div>
-        <div className="container-fluid">
-          <br></br>
-          {this.showQuizzerSection()}
-          {this.showQuizMasterSection()}
-          <br></br>
-        </div>
-        <div>
-          <h3>Current Jumper: {jumper}</h3>
-        </div>
-        <br></br>
-        <Button onClick={() => this.mute()}>Mute Question Audio</Button>{' '}
-        <h3>Audio Enabled: {this.state.play_audio.toString()}</h3>
-      </React.Fragment>
+      </Router>
     );
   }
 }
 
 export default App;
+
+function About() {
+  return (
+    <div>
+      <h2>About</h2>
+    </div>
+  );
+}
+
+function Dashboard() {
+  return (
+    <div>
+      <h2>Dashboard</h2>
+    </div>
+  );
+}
