@@ -120,15 +120,22 @@ current content of the editor to the server. */
 
       // Speaks the text aloud.
       if (session.state.play_audio === true) {
-        var msg = new SpeechSynthesisUtterance();
-        var voices = window.speechSynthesis.getVoices();
-        msg.voice = voices[1]; // Note: some voices don't support altering params
-        msg.voiceURI = 'native';
-        msg.rate = 2.3; // 0.1 to 10
-        var tts = dataFromServer.question.split(" ")
-        msg.text = tts[tts.length - 2]
-        msg.lang = 'en-US';
-        speechSynthesis.speak(msg);
+        try{
+          var msg = new SpeechSynthesisUtterance();
+          var voices = window.speechSynthesis.getVoices();
+          msg.voice = voices[1]; // Note: some voices don't support altering params
+          msg.voiceURI = 'native';
+          msg.rate = 2.3; // 0.1 to 10
+          var tts = dataFromServer.question.split(" ")
+          msg.text = tts[tts.length - 2]
+          msg.lang = 'en-US';
+          speechSynthesis.speak(msg);
+        }catch{
+          alert("Audio does not work on this device.")
+          this.mute();
+          var audiobutton = document.getElementById("audioButton");
+          audiobutton.disabled = true;
+        }
       }
 
       session.setState({
