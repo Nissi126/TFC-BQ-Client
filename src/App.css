@@ -76,11 +76,10 @@
 }
 
 .quizMasterBody{
-    text-align: center;
+    text-align: left;
     padding: 0.5rem;
     /* border: 5px solid #6C6D71; */
     border-radius: 5px;
-    flex: 1 33.33%;
     margin-bottom:0;
 }
 
