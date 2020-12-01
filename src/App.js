@@ -37,6 +37,7 @@ class App extends Component {
       question_number: 0,
       i: 0,
       full_question_text: "",
+      qm_full_question_text: "",
       answer_question_text: "🤔",
       room: user_room,
       play_audio: false,
@@ -216,6 +217,7 @@ current content of the editor to the server. */
           }
           this.setState({
             full_question_text: fullQuestionTemp,
+            qm_full_question_text: data["Book"]+" "+data["Chapter"]+":"+data["Verse"]+" -"+data["Question"],
             question_reference: data["Reference Text"],
             answer_question_text: data["Answer"],
             q_text_to_display: " ",
@@ -252,11 +254,11 @@ current content of the editor to the server. */
   }
 
   showQuizMasterSection = () => {
-    var { username, full_question_text, answer_question_text, question_reference } = this.state
+    var { username, qm_full_question_text, answer_question_text, question_reference } = this.state
     if (username === 'QM') {
       return (
         <div className="quiz_master_content">
-          <h4 className="quizMasterBody"><b>Full Question:</b> {full_question_text}</h4>
+          <h4 className="quizMasterBody"><b>Full Question:</b> {qm_full_question_text}</h4>
           <h4 className="quizMasterBody"><b>Answer:</b> {answer_question_text}</h4>
           <h4 className="quizMasterBody"><b>Full Verse:</b> {question_reference}</h4>
           <h6 className="quizMasterBody wrap_around"><b>Quizzers in room:</b> {this.state.quizzers_in_room.join(', ')}</h6>
