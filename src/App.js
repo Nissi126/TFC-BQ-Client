@@ -18,13 +18,16 @@ import chapters from './constants';
 // Websocket server
 // var server = 'http://127.0.0.1:8000/'
 var server = 'https://tfc-web-socket.herokuapp.com'
-const io = require('socket.io-client');
+
 var user_room = prompt("Please enter your room #", "room");
 var entered_username = prompt("Please enter your user name. E.G. 1-Jeff-Gnarwhals3.0", "Username");
-var client = io.connect(server).emit('room', JSON.stringify({
-  room: user_room,
-  username: entered_username
-}));
+if(entered_username !== "Quizzer Practice"){
+  const io = require('socket.io-client');
+  var client = io.connect(server).emit('room', JSON.stringify({
+    room: user_room,
+    username: entered_username
+  }));
+}
 
 class App extends Component {
   constructor(props) {
@@ -48,6 +51,7 @@ class App extends Component {
   }
 
   showMoreOpions = true;
+  showQuizzerMorePracticeInformation =false;
 
   /* When content changes, we send the
 current content of the editor to the server. */
@@ -104,19 +108,43 @@ current content of the editor to the server. */
     }
   }
 
+  showQuizzerMore() {
+    var showQuizzerMore = document.getElementById("showQuizzerMore");
+    var showQuizzerLess = document.getElementById("showQuizzerLess");
+    var moreQuizzerPractice = document.getElementById("moreQuizzerPractice");
+    this.showQuizzerMorePracticeInformation=!this.showQuizzerMorePracticeInformation;
+    if(this.showQuizzerMorePracticeInformation){
+      showQuizzerLess.style.display = "block";
+      showQuizzerMore.style.display = "none";
+      moreQuizzerPractice.style.display = "block";
+    }else{
+      showQuizzerMore.style.display = "block";
+      showQuizzerLess.style.display = "none";
+      moreQuizzerPractice.style.display = "none";
+    }
+  }
+
   componentWillMount() {
     var session = this;
     console.log('session')
     console.log(session)
 
     client.on('contentchange', function (message) {
-      const dataFromServer = message
       const stateToChange = {};
-      stateToChange.jumper = dataFromServer.jumper
-      stateToChange.q_text_to_display = dataFromServer.question
-      stateToChange.full_question_text = dataFromServer.full_question_text
-      stateToChange.question_number = dataFromServer.question_number
-      stateToChange.quiz_started = dataFromServer.quiz_started
+      var tts
+      var { username, question_number } = this.state
+      if(username !== "Quizzer Practice"){
+        const dataFromServer = message
+        stateToChange.jumper = dataFromServer.jumper
+        stateToChange.q_text_to_display = dataFromServer.question
+        stateToChange.full_question_text = dataFromServer.full_question_text
+        stateToChange.question_number = dataFromServer.question_number
+        stateToChange.quiz_started = dataFromServer.quiz_started
+        tts = dataFromServer.question.split(" ")
+      }else{
+        stateToChange.jumper = username
+        tts = question_number.split(" ")
+      }
 
       // Speaks the text aloud.
       if (session.state.play_audio === true) {
@@ -125,7 +153,6 @@ current content of the editor to the server. */
         msg.voice = voices[1]; // Note: some voices don't support altering params
         msg.voiceURI = 'native';
         msg.rate = 2.3; // 0.1 to 10
-        var tts = dataFromServer.question.split(" ")
         msg.text = tts[tts.length - 2]
         msg.lang = 'en-US';
         speechSynthesis.speak(msg);
@@ -166,13 +193,16 @@ current content of the editor to the server. */
       i,
       full_question_text,
       room,
+      username
     } = this.state
     this.question_array = full_question_text.split(" ")
     if (i < this.question_array.length) {
       q_text_to_display = q_text_to_display.concat(this.question_array[i]).concat(' ')
       i++
       this.setState({ q_text_to_display: q_text_to_display, i: i, question_number:question_number, full_question_text:full_question_text, quiz_started: true})
-      this.sync(room)
+      if(username !== 'Quizzer Practice'){
+        this.sync(room)
+      }
     }
   }
 
@@ -189,6 +219,53 @@ current content of the editor to the server. */
       this.i = this.question_array.length
       this.syncJump(this.i, room, username)
     }
+  }
+
+  async nextPracticeQuestion() {
+    this.setState({ jumper: null })
+    var { question_number } = this.state
+    var selectedRandomChaptersList = []
+    console.log('selectedChapters!!!')
+    console.log(this.state.selectedChapters)
+    if (this.state.selectedChapters !== null && this.state.selectedChapters.length > 0) {
+      for (var i = 0; this.state.selectedChapters.length > i; i++) {
+        selectedRandomChaptersList.push(this.state.selectedChapters[i].value);
+      }
+    }
+    await fetchQuestion("Matthew", selectedRandomChaptersList)
+      .then(res => res.json()).then((data) => {
+        this.i = 0
+        if (data != null) {
+          console.log(data);
+          console.log("Full quesiton from Database: ", data["Question"]);
+          var fullQuestionTemp
+          if(data["Question"].includes("[")){
+            const removedORquestion = data["Question"].split(" [")
+            fullQuestionTemp = data["Chapter"]+" verse "+data["Verse"]+" -"+removedORquestion[0]+"?";
+          }else if(data["Chapter"]>20){
+            fullQuestionTemp = data["Chapter"]+" verse "+data["Verse"]+" -"+data["Question"];
+          }else{
+            fullQuestionTemp = data["Chapter"]+":"+data["Verse"]+" -"+data["Question"];
+          }
+          this.setState({
+            full_question_text: fullQuestionTemp,
+            qm_full_question_text: data["Chapter"]+":"+data["Verse"]+" -"+data["Question"],
+            question_reference: data["Reference Text"],
+            answer_question_text: data["Answer"],
+            q_text_to_display: " ",
+            question_number: question_number+1,
+            i: this.i
+          })
+        } else {
+          this.setState({
+            q_text_to_display: "*** No question found for selected criteria :/ ***",
+            full_question_text: "*** No question found for selected criteria :/ ***"
+          })
+        }
+        if (!this.state.quiz_started) {
+          setInterval(() => this.startQuiz(), 1000);
+        }
+      });
   }
 
   async nextQuestion() {
@@ -255,6 +332,19 @@ current content of the editor to the server. */
     )
   }
 
+  showQuizzerMoreInformation = () => {
+    var { qm_full_question_text, answer_question_text, question_reference } = this.state
+    return (
+      <div>
+        <h4 className="quizMasterBody"><b>Full Question:</b> {qm_full_question_text}</h4>
+        <h4 className="quizMasterBody"><b>Answer:</b> {answer_question_text}</h4>
+        <h4 className="quizMasterBody"><b>Full Verse:</b> {question_reference}</h4>
+        <h6 className="quizMasterBody wrap_around"><b>Quizzers in room:</b> {this.state.quizzers_in_room.join(', ')}</h6>
+        <this.showMoreQuizControls></this.showMoreQuizControls>
+      </div>
+    )
+  }
+
   showQuizMasterSection = () => {
     var { username, qm_full_question_text, answer_question_text, question_reference } = this.state
     if (username === 'QM') {
@@ -276,6 +366,21 @@ current content of the editor to the server. */
           </div>
         </div>
       )
+    }else if(username === 'Quizzer Practice'){
+      return (
+        <div className="quiz_master_content">
+          <div className="flex">
+            <Button id="showQuizzerMoreButton" onClick={() => this.showQuizzerMore()}>
+              <ExpandLessIcon id="showQuizzerLess" style={{display:'none'}}/>
+              <ExpandMoreIcon id="showQuizzerMore"/>
+            </Button>
+            <h6>More Question Information</h6>
+          </div>
+          <div id="moreQuizzerPractice" className="flex" style={{display:'none'}}>
+            <this.showQuizzerMoreInformation></this.showQuizzerMoreInformation>
+          </div>
+        </div>
+      )
     }
     return ""
   }
@@ -292,13 +397,19 @@ current content of the editor to the server. */
           {startQuizORnextQuestion}{' '}
         </div>
       )
-    }else{
+    }
+    if(username === 'Quizzer Practice'){
       return (
-        <div className="footerButton">
-          <Button onClick={() => this.jump()}><h2>Jump</h2></Button>
+        <div id="practiceQuestion">
+          <div id="practiceQuiz" className="footerButton"><Button onClick={() => this.nextPracticeQuestion()}><h3>Next Question</h3></Button>{' '}</div>
         </div>
       )
     }
+    return (
+      <div className="footerButton">
+        <Button onClick={() => this.jump()}><h2>Jump</h2></Button>
+      </div>
+    )
   }
 
   render() {
