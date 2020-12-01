@@ -211,13 +211,15 @@ current content of the editor to the server. */
           var fullQuestionTemp
           if(data["Question"].includes("[")){
             const removedORquestion = data["Question"].split(" [")
-            fullQuestionTemp = data["Book"]+" "+data["Chapter"]+" verse "+data["Verse"]+" -"+removedORquestion[0]+"?";
+            fullQuestionTemp = data["Chapter"]+" verse "+data["Verse"]+" -"+removedORquestion[0]+"?";
+          }else if(data["Chapter"]>20){
+            fullQuestionTemp = data["Chapter"]+" verse "+data["Verse"]+" -"+data["Question"];
           }else{
-            fullQuestionTemp = data["Book"]+" "+data["Chapter"]+" verse "+data["Verse"]+" -"+data["Question"];
+            fullQuestionTemp = data["Chapter"]+":"+data["Verse"]+" -"+data["Question"];
           }
           this.setState({
             full_question_text: fullQuestionTemp,
-            qm_full_question_text: data["Book"]+" "+data["Chapter"]+":"+data["Verse"]+" -"+data["Question"],
+            qm_full_question_text: data["Chapter"]+":"+data["Verse"]+" -"+data["Question"],
             question_reference: data["Reference Text"],
             answer_question_text: data["Answer"],
             q_text_to_display: " ",
@@ -311,7 +313,7 @@ current content of the editor to the server. */
     let quizzerQuestionInformation;
     let quizzerQuestion=<h2>{q_text_to_display}</h2>
     if(question_number>0){
-      quizzerQuestionInformation = <h4 className="question_information">Question #{question_number}</h4>
+      quizzerQuestionInformation = <h4 className="question_information">Question #{question_number} from the book of Matthew.</h4>
     }else{
       quizzerQuestion=<h2><span role="img" aria-label="eyes">👀</span> Watch for the question to appear here. <span role="img" aria-label="eyes">👀</span></h2>
       quizzerQuestionInformation = <h4 className="question_information">Quiz Master has not started the quiz.</h4>
