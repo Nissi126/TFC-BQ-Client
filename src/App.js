@@ -16,8 +16,8 @@ import { fetchQuestion } from './webserviceCalls';
 import chapters from './constants';
 
 // Websocket server
-var server = 'http://127.0.0.1:8000/'
-// var server = 'wss://mysterious-journey-90036.herokuapp.com'
+// var server = 'http://127.0.0.1:8000/'
+var server = 'https://tfc-web-socket.herokuapp.com'
 const io = require('socket.io-client');
 var user_room = prompt("Please enter your room #", "room");
 var entered_username = prompt("Please enter your user name. E.G. 1-Jeff-Gnarwhals3.0", "Username");
