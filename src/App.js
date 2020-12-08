@@ -9,11 +9,11 @@ import VolumeOffOutlinedIcon from '@material-ui/icons/VolumeOffOutlined';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import Select from 'react-select';
+import makeAnimated from 'react-select/animated';
 import 'medium-editor/dist/css/medium-editor.css';
 import 'medium-editor/dist/css/themes/default.css';
 import './App.css';
-import { fetchQuestion } from './webserviceCalls';
-import chapters from './constants';
+import { fetchQuestion, fetchMaterial } from './webserviceCalls';
 
 // Websocket server
 // var server = 'http://127.0.0.1:8000/'
@@ -43,7 +43,9 @@ class App extends Component {
       play_audio: false,
       quizzers_in_room: [],
       quiz_started: false,
-      selectedChapters: chapters
+      selectedMaterial: {},
+      leagueMaterial:{},
+      league:"junior-quizzing"
     };
   }
 
@@ -102,13 +104,17 @@ current content of the editor to the server. */
       showLess.style.display = "none";
       moreQuizOptions.style.display = "none";
     }
+    this.showMoreQuizControls();
   }
 
   componentWillMount() {
     var session = this;
     console.log('session')
     console.log(session)
-
+    if(session.state.username === 'QM'){
+      this.getMaterial()
+    }
+    
     client.on('contentchange', function (message) {
       const dataFromServer = message
       const stateToChange = {};
@@ -200,16 +206,22 @@ current content of the editor to the server. */
 
   async nextQuestion() {
     this.setState({ jumper: null })
-    var { question_number } = this.state
-    var selectedRandomChaptersList = []
-    console.log('selectedChapters!!!')
-    console.log(this.state.selectedChapters)
-    if (this.state.selectedChapters !== null && this.state.selectedChapters.length > 0) {
-      for (var i = 0; this.state.selectedChapters.length > i; i++) {
-        selectedRandomChaptersList.push(this.state.selectedChapters[i].value);
+    var { question_number, league, selectedMaterial } = this.state
+    var selectedBooksList = []
+    var selectedCorrespondingChapters={}
+    if (selectedMaterial !== {}) {
+      for (const [key, value] of Object.entries(selectedMaterial)) {
+        if(value.length > 0){
+          var chaptersTemp=[]
+          for(var i =0; i<value.length; i++){
+            chaptersTemp.push(value[i].value)
+          }
+          selectedBooksList.push(key);
+          selectedCorrespondingChapters[key]=chaptersTemp;
+        }
       }
     }
-    await fetchQuestion("Matthew", selectedRandomChaptersList)
+    await fetchQuestion(selectedBooksList, selectedCorrespondingChapters, league)
       .then(res => res.json()).then((data) => {
         this.i = 0
         if (data != null) {
@@ -245,21 +257,59 @@ current content of the editor to the server. */
       });
   }
 
+  updateSelectedMaterial =(book, chapters) =>{
+    var { selectedMaterial } = this.state
+    var newSelectedMaterial = {}
+    if(Object.keys(selectedMaterial).length === 0){
+      newSelectedMaterial[book.key]=chapters
+    }else if(!selectedMaterial.hasOwnProperty(book.key)){
+      newSelectedMaterial=selectedMaterial
+      newSelectedMaterial[book.key]=chapters
+    }else{
+      for (const [key, value] of Object.entries(selectedMaterial)) {
+        if(key === book.key){
+          newSelectedMaterial[book.key]=chapters
+        }else{
+          newSelectedMaterial[key]=value
+        }
+      }
+    }
+    this.setState({ selectedMaterial: newSelectedMaterial})
+  }
+
+  async getMaterial() {
+    await fetchMaterial(this.state.league)
+      .then(res => res.json()).then((data) => {
+        this.setState({ leagueMaterial: data})
+      });
+  }
+
   showMoreQuizControls = () => {
-    return (
-      <div>
-        <label htmlFor="questionChaptersLabel">Choose Chapters:</label>
+    var { leagueMaterial } = this.state
+    const animatedComponents = makeAnimated();
+    var booksAndChaptersDIV = <div></div>
+    for (const [key, value] of Object.entries(leagueMaterial)) {
+      var i;
+      var chapters = []
+      for (i = 0; i < value.length; i++) {
+        chapters.push({value: value[i], label: value[i]});
+      }
+      var bookMaterialDiv = <div>
+        <label htmlFor="questionChaptersLabel">Choose Chapters for {key}:</label>
         <Select
-          defaultValue={[chapters[0], chapters[1], chapters[2], chapters[3], chapters[4], chapters[5], chapters[6], chapters[7], chapters[8], chapters[9], chapters[10], chapters[11], chapters[12], chapters[13], chapters[14], chapters[15], chapters[16], chapters[17], chapters[18], chapters[19], chapters[20], chapters[21], chapters[22], chapters[23], chapters[24], chapters[25], chapters[26], chapters[27]]}
           isMulti
+          closeMenuOnSelect={false}
+          components={animatedComponents}
           name="questionchapters"
           options={chapters}
-          onChange={(e) => this.setState({ selectedChapters: e })}
+          onChange={(e) => this.updateSelectedMaterial({key},e)}
           className="basic-multi-select"
           classNamePrefix="select"
         />
       </div>
-    )
+      booksAndChaptersDIV= <div>{booksAndChaptersDIV} {bookMaterialDiv}</div>
+    }
+    return booksAndChaptersDIV
   }
 
   showQuizMasterSection = () => {
