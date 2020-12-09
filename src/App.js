@@ -16,8 +16,8 @@ import './App.css';
 import { fetchQuestion, fetchMaterial } from './webserviceCalls';
 
 // Websocket server
-// var server = 'http://127.0.0.1:8000/'
-var server = 'https://tfc-web-socket.herokuapp.com'
+var server = 'http://127.0.0.1:8000/'
+// var server = 'https://tfc-web-socket.herokuapp.com'
 const io = require('socket.io-client');
 var user_room = prompt("Please enter your room #", "room");
 var entered_username = prompt("Please enter your user name. E.G. 1-Jeff-Gnarwhals3.0", "Username");
@@ -33,6 +33,7 @@ class App extends Component {
       username: entered_username,
       jumper: null,
       q_text_to_display: "",
+      question_book: "",
       question_reference: "",
       question_number: 0,
       i: 0,
@@ -45,7 +46,7 @@ class App extends Component {
       quiz_started: false,
       selectedMaterial: {},
       leagueMaterial:{},
-      league:"junior-quizzing"
+      league:""
     };
   }
 
@@ -56,12 +57,16 @@ current content of the editor to the server. */
   sync = (room_id) => {
     var {
       q_text_to_display,
+      league,
+      question_book,
       question_number,
       full_question_text,
       quiz_started
     } = this.state
     client.emit('contentchange', JSON.stringify({
       content: q_text_to_display,
+      question_book: question_book,
+      league: league,
       full_question_text: full_question_text,
       question_number: question_number,
       room: room_id,
@@ -120,6 +125,8 @@ current content of the editor to the server. */
       const stateToChange = {};
       stateToChange.jumper = dataFromServer.jumper
       stateToChange.q_text_to_display = dataFromServer.question
+      stateToChange.question_book = dataFromServer.question_book
+      stateToChange.league = dataFromServer.league
       stateToChange.full_question_text = dataFromServer.full_question_text
       stateToChange.question_number = dataFromServer.question_number
       stateToChange.quiz_started = dataFromServer.quiz_started
@@ -175,6 +182,8 @@ current content of the editor to the server. */
   startQuiz() {
     var {
       q_text_to_display,
+      league,
+      question_book,
       question_number,
       i,
       full_question_text,
@@ -184,7 +193,7 @@ current content of the editor to the server. */
     if (i < this.question_array.length) {
       q_text_to_display = q_text_to_display.concat(this.question_array[i]).concat(' ')
       i++
-      this.setState({ q_text_to_display: q_text_to_display, i: i, question_number:question_number, full_question_text:full_question_text, quiz_started: true})
+      this.setState({ q_text_to_display: q_text_to_display, i: i, question_number:question_number, league:league, question_book:question_book, full_question_text:full_question_text, quiz_started: true})
       this.sync(room)
     }
   }
@@ -238,6 +247,7 @@ current content of the editor to the server. */
           }
           this.setState({
             full_question_text: fullQuestionTemp,
+            question_book: data["Book"],
             qm_full_question_text: data["Chapter"]+":"+data["Verse"]+" -"+data["Question"],
             question_reference: data["Reference Text"],
             answer_question_text: data["Answer"],
@@ -278,16 +288,34 @@ current content of the editor to the server. */
   }
 
   async getMaterial() {
-    await fetchMaterial(this.state.league)
+    var { league } = this.state
+    console.log('currentLeage: ', league)
+    await fetchMaterial(league)
       .then(res => res.json()).then((data) => {
         this.setState({ leagueMaterial: data})
       });
   }
 
+  updateLeague =(newLeague) =>{
+    console.log('NewLeage: ', newLeague)
+    this.setState({ league: newLeague})
+    setTimeout(this.getMaterial(), 1000);
+    // this.getMaterial()  
+  }
+
   showMoreQuizControls = () => {
     var { leagueMaterial } = this.state
     const animatedComponents = makeAnimated();
-    var booksAndChaptersDIV = <div></div>
+    var booksAndChaptersDIV = <div>
+      <label htmlFor="questionChaptersLabel">Choose League:</label>
+      <Select
+        name="quizzingLeage"
+        options={[{value: 'quizzing', label: 'Quizzing'},{value: 'junior-quizzing', label: 'Junior Quizzing'}]}
+        onChange={(e) => this.updateLeague(e.value)}
+        className="basic-single"
+        classNamePrefix="select"
+      />
+    </div>
     for (const [key, value] of Object.entries(leagueMaterial)) {
       var i;
       var chapters = []
@@ -295,7 +323,7 @@ current content of the editor to the server. */
         chapters.push({value: value[i], label: value[i]});
       }
       var bookMaterialDiv = <div>
-        <label htmlFor="questionChaptersLabel">Choose Chapters for {key}:</label>
+        <label htmlFor="questionChaptersLabel">Choose Chapters for <b>{key}</b>:</label>
         <Select
           isMulti
           closeMenuOnSelect={false}
@@ -361,16 +389,25 @@ current content of the editor to the server. */
   render() {
     const {
       q_text_to_display,
+      question_book,
       question_number,
       room,
       username,
       quiz_started,
-      jumper
+      jumper,
+      league
     } = this.state;
     let quizzerQuestionInformation;
     let quizzerQuestion=<h2>{q_text_to_display}</h2>
+    if(league==="junior-quizzing"){
+    quizzerQuestion = <h2>{question_book} {q_text_to_display}</h2>
+    }
     if(question_number>0){
-      quizzerQuestionInformation = <h4 className="question_information">Question #{question_number} from the book of Matthew.</h4>
+      if(league==="quizzing"){
+        quizzerQuestionInformation = <h4 className="question_information">Question #{question_number} from the book of Matthew.</h4>
+      }else{
+        quizzerQuestionInformation = <h4 className="question_information">Question #{question_number}</h4>
+      }
     }else{
       quizzerQuestion=<h2><span role="img" aria-label="eyes">👀</span> Watch for the question to appear here. <span role="img" aria-label="eyes">👀</span></h2>
       quizzerQuestionInformation = <h4 className="question_information">Quiz Master has not started the quiz.</h4>
