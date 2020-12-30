@@ -9,11 +9,11 @@ import VolumeOffOutlinedIcon from '@material-ui/icons/VolumeOffOutlined';
 import ExpandLessIcon from '@material-ui/icons/ExpandLess';
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
 import Select from 'react-select';
+import makeAnimated from 'react-select/animated';
 import 'medium-editor/dist/css/medium-editor.css';
 import 'medium-editor/dist/css/themes/default.css';
 import './App.css';
-import { fetchQuestion } from './webserviceCalls';
-import chapters from './constants';
+import { fetchQuestion, fetchMaterial } from './webserviceCalls';
 
 // Websocket server
 // var server = 'http://127.0.0.1:8000/'
@@ -33,6 +33,7 @@ class App extends Component {
       username: entered_username,
       jumper: null,
       q_text_to_display: "",
+      question_book: "",
       question_reference: "",
       question_number: 0,
       i: 0,
@@ -43,7 +44,9 @@ class App extends Component {
       play_audio: false,
       quizzers_in_room: [],
       quiz_started: false,
-      selectedChapters: chapters
+      selectedMaterial: {},
+      leagueMaterial:{},
+      league:""
     };
   }
 
@@ -54,12 +57,16 @@ current content of the editor to the server. */
   sync = (room_id) => {
     var {
       q_text_to_display,
+      league,
+      question_book,
       question_number,
       full_question_text,
       quiz_started
     } = this.state
     client.emit('contentchange', JSON.stringify({
       content: q_text_to_display,
+      question_book: question_book,
+      league: league,
       full_question_text: full_question_text,
       question_number: question_number,
       room: room_id,
@@ -102,18 +109,30 @@ current content of the editor to the server. */
       showLess.style.display = "none";
       moreQuizOptions.style.display = "none";
     }
+    this.showMoreQuizControls();
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    if(prevState.league !== this.state.league){
+      this.getMaterial();
+    }
   }
 
   componentWillMount() {
     var session = this;
     console.log('session')
     console.log(session)
-
+    if(session.state.username === 'QM'){
+      this.getMaterial()
+    }
+    
     client.on('contentchange', function (message) {
       const dataFromServer = message
       const stateToChange = {};
       stateToChange.jumper = dataFromServer.jumper
       stateToChange.q_text_to_display = dataFromServer.question
+      stateToChange.question_book = dataFromServer.question_book
+      stateToChange.league = dataFromServer.league
       stateToChange.full_question_text = dataFromServer.full_question_text
       stateToChange.question_number = dataFromServer.question_number
       stateToChange.quiz_started = dataFromServer.quiz_started
@@ -127,6 +146,9 @@ current content of the editor to the server. */
           msg.voiceURI = 'native';
           msg.rate = 2.3; // 0.1 to 10
           var tts = dataFromServer.question.split(" ")
+          if(dataFromServer.league ==="junior-quizzing"){
+            tts.unshift(dataFromServer.question_book);
+          }
           msg.text = tts[tts.length - 2]
           msg.lang = 'en-US';
           speechSynthesis.speak(msg);
@@ -169,6 +191,8 @@ current content of the editor to the server. */
   startQuiz() {
     var {
       q_text_to_display,
+      league,
+      question_book,
       question_number,
       i,
       full_question_text,
@@ -178,7 +202,7 @@ current content of the editor to the server. */
     if (i < this.question_array.length) {
       q_text_to_display = q_text_to_display.concat(this.question_array[i]).concat(' ')
       i++
-      this.setState({ q_text_to_display: q_text_to_display, i: i, question_number:question_number, full_question_text:full_question_text, quiz_started: true})
+      this.setState({ q_text_to_display: q_text_to_display, i: i, question_number:question_number, league:league, question_book:question_book, full_question_text:full_question_text, quiz_started: true})
       this.sync(room)
     }
   }
@@ -200,16 +224,23 @@ current content of the editor to the server. */
 
   async nextQuestion() {
     this.setState({ jumper: null })
-    var { question_number } = this.state
-    var selectedRandomChaptersList = []
-    console.log('selectedChapters!!!')
-    console.log(this.state.selectedChapters)
-    if (this.state.selectedChapters !== null && this.state.selectedChapters.length > 0) {
-      for (var i = 0; this.state.selectedChapters.length > i; i++) {
-        selectedRandomChaptersList.push(this.state.selectedChapters[i].value);
+    var { question_number, league, selectedMaterial } = this.state
+    console.log('currentLeage: ', league)
+    var selectedBooksList = []
+    var selectedCorrespondingChapters={}
+    if (selectedMaterial !== {}) {
+      for (const [key, value] of Object.entries(selectedMaterial)) {
+        if(value.length > 0){
+          var chaptersTemp=[]
+          for(var i =0; i<value.length; i++){
+            chaptersTemp.push(value[i].value)
+          }
+          selectedBooksList.push(key);
+          selectedCorrespondingChapters[key]=chaptersTemp;
+        }
       }
     }
-    await fetchQuestion("Matthew", selectedRandomChaptersList)
+    await fetchQuestion(selectedBooksList, selectedCorrespondingChapters, league)
       .then(res => res.json()).then((data) => {
         this.i = 0
         if (data != null) {
@@ -226,6 +257,7 @@ current content of the editor to the server. */
           }
           this.setState({
             full_question_text: fullQuestionTemp,
+            question_book: data["Book"],
             qm_full_question_text: data["Chapter"]+":"+data["Verse"]+" -"+data["Question"],
             question_reference: data["Reference Text"],
             answer_question_text: data["Answer"],
@@ -245,21 +277,76 @@ current content of the editor to the server. */
       });
   }
 
+  updateSelectedMaterial =(book, chapters) =>{
+    var { selectedMaterial } = this.state
+    var newSelectedMaterial = {}
+    if(Object.keys(selectedMaterial).length === 0){
+      newSelectedMaterial[book.key]=chapters
+    }else if(!selectedMaterial.hasOwnProperty(book.key)){
+      newSelectedMaterial=selectedMaterial
+      newSelectedMaterial[book.key]=chapters
+    }else{
+      for (const [key, value] of Object.entries(selectedMaterial)) {
+        if(key === book.key){
+          newSelectedMaterial[book.key]=chapters
+        }else{
+          newSelectedMaterial[key]=value
+        }
+      }
+    }
+    this.setState({ selectedMaterial: newSelectedMaterial})
+  }
+
+  async getMaterial() {
+    var { league } = this.state
+    console.log('currentLeage: ', league)
+    await fetchMaterial(league)
+      .then(res => res.json()).then((data) => {
+        this.setState({ leagueMaterial: data})
+      });
+  }
+
+  updateLeague =(newLeague) =>{
+    console.log('NewLeage: ', newLeague)
+    this.setState({ league: newLeague})
+  }
+
   showMoreQuizControls = () => {
-    return (
-      <div>
-        <label htmlFor="questionChaptersLabel">Choose Chapters:</label>
+    var { leagueMaterial } = this.state
+    const animatedComponents = makeAnimated();
+    var booksAndChaptersDIV = <div>
+      <label htmlFor="questionChaptersLabel">Choose League:</label>
+      <Select
+        name="quizzingLeage"
+        defaultValue={{ label: "Quizzing", value: 'quizzing' }}
+        options={[{value: 'quizzing', label: 'Quizzing'},{value: 'junior-quizzing', label: 'Junior Quizzing'}]}
+        onChange={(e) => this.updateLeague(e.value)}
+        className="basic-single"
+        classNamePrefix="select"
+      />
+    </div>
+    for (const [key, value] of Object.entries(leagueMaterial)) {
+      var i;
+      var chapters = []
+      for (i = 0; i < value.length; i++) {
+        chapters.push({value: value[i], label: value[i]});
+      }
+      var bookMaterialDiv = <div>
+        <label htmlFor="questionChaptersLabel">Choose Chapters for <b>{key}</b>:</label>
         <Select
-          defaultValue={[chapters[0], chapters[1], chapters[2], chapters[3], chapters[4], chapters[5], chapters[6], chapters[7], chapters[8], chapters[9], chapters[10], chapters[11], chapters[12], chapters[13], chapters[14], chapters[15], chapters[16], chapters[17], chapters[18], chapters[19], chapters[20], chapters[21], chapters[22], chapters[23], chapters[24], chapters[25], chapters[26], chapters[27]]}
           isMulti
+          closeMenuOnSelect={false}
+          components={animatedComponents}
           name="questionchapters"
           options={chapters}
-          onChange={(e) => this.setState({ selectedChapters: e })}
+          onChange={(e) => this.updateSelectedMaterial({key},e)}
           className="basic-multi-select"
           classNamePrefix="select"
         />
       </div>
-    )
+      booksAndChaptersDIV= <div>{booksAndChaptersDIV} {bookMaterialDiv}</div>
+    }
+    return booksAndChaptersDIV
   }
 
   showQuizMasterSection = () => {
@@ -311,16 +398,25 @@ current content of the editor to the server. */
   render() {
     const {
       q_text_to_display,
+      question_book,
       question_number,
       room,
       username,
       quiz_started,
-      jumper
+      jumper,
+      league
     } = this.state;
     let quizzerQuestionInformation;
     let quizzerQuestion=<h2>{q_text_to_display}</h2>
+    if(league==="junior-quizzing"){
+    quizzerQuestion = <h2>{question_book} {q_text_to_display}</h2>
+    }
     if(question_number>0){
-      quizzerQuestionInformation = <h4 className="question_information">Question #{question_number} from the book of Matthew.</h4>
+      if(league==="quizzing"){
+        quizzerQuestionInformation = <h4 className="question_information">Question #{question_number} from the book of Matthew.</h4>
+      }else{
+        quizzerQuestionInformation = <h4 className="question_information">Question #{question_number}</h4>
+      }
     }else{
       quizzerQuestion=<h2><span role="img" aria-label="eyes">👀</span> Watch for the question to appear here. <span role="img" aria-label="eyes">👀</span></h2>
       quizzerQuestionInformation = <h4 className="question_information">Quiz Master has not started the quiz.</h4>
