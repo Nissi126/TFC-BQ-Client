@@ -16,8 +16,8 @@ import './App.css';
 import { fetchQuestion, fetchMaterial } from './webserviceCalls';
 
 // Websocket server
-var server = 'http://127.0.0.1:8000/'
-// var server = 'https://tfc-web-socket.herokuapp.com'
+// var server = 'http://127.0.0.1:8000/'
+var server = 'https://tfc-web-socket.herokuapp.com'
 const io = require('socket.io-client');
 var user_room = prompt("Please enter your room #", "room");
 var entered_username = prompt("Please enter your user name. E.G. 1-Jeff-Gnarwhals3.0", "Username");
@@ -112,6 +112,12 @@ current content of the editor to the server. */
     this.showMoreQuizControls();
   }
 
+  componentDidUpdate(prevProps, prevState) {
+    if(prevState.league !== this.state.league){
+      this.getMaterial();
+    }
+  }
+
   componentWillMount() {
     var session = this;
     console.log('session')
@@ -140,6 +146,9 @@ current content of the editor to the server. */
           msg.voiceURI = 'native';
           msg.rate = 2.3; // 0.1 to 10
           var tts = dataFromServer.question.split(" ")
+          if(dataFromServer.league ==="junior-quizzing"){
+            tts.unshift(dataFromServer.question_book);
+          }
           msg.text = tts[tts.length - 2]
           msg.lang = 'en-US';
           speechSynthesis.speak(msg);
@@ -216,6 +225,7 @@ current content of the editor to the server. */
   async nextQuestion() {
     this.setState({ jumper: null })
     var { question_number, league, selectedMaterial } = this.state
+    console.log('currentLeage: ', league)
     var selectedBooksList = []
     var selectedCorrespondingChapters={}
     if (selectedMaterial !== {}) {
@@ -299,8 +309,6 @@ current content of the editor to the server. */
   updateLeague =(newLeague) =>{
     console.log('NewLeage: ', newLeague)
     this.setState({ league: newLeague})
-    setTimeout(this.getMaterial(), 1000);
-    // this.getMaterial()  
   }
 
   showMoreQuizControls = () => {
@@ -310,6 +318,7 @@ current content of the editor to the server. */
       <label htmlFor="questionChaptersLabel">Choose League:</label>
       <Select
         name="quizzingLeage"
+        defaultValue={{ label: "Quizzing", value: 'quizzing' }}
         options={[{value: 'quizzing', label: 'Quizzing'},{value: 'junior-quizzing', label: 'Junior Quizzing'}]}
         onChange={(e) => this.updateLeague(e.value)}
         className="basic-single"
